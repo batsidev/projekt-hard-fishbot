@@ -31,6 +31,19 @@ from PySide6.QtWidgets import (
 PROJECT_ROOT = Path(__file__).resolve().parent
 FISHER_SCRIPT = PROJECT_ROOT / "fisher.py"
 NOTIFICATION_TEXT = "New message detected"
+FISHER_CHILD_ARG = "--run-fisher-child"
+
+
+def is_frozen_app() -> bool:
+    """Return True when running from a PyInstaller executable."""
+    return bool(getattr(sys, "frozen", False))
+
+
+def executable_dir() -> Path:
+    """Return the directory containing the executable or source script."""
+    if is_frozen_app():
+        return Path(sys.executable).resolve().parent
+    return PROJECT_ROOT
 
 
 class FisherWorker(QThread):
@@ -51,12 +64,21 @@ class FisherWorker(QThread):
         self._terminator: Optional[threading.Thread] = None
 
     def run(self) -> None:
-        if not self.script_path.exists():
-            self.process_error.emit(f"[GUI] Errore: file non trovato: {self.script_path}\n")
-            self.process_finished.emit(-1, "fisher.py non trovato")
-            return
+        if is_frozen_app():
+            command = [sys.executable, FISHER_CHILD_ARG]
+            working_directory = executable_dir()
+            startup_description = f"{Path(sys.executable).name} {FISHER_CHILD_ARG}"
+        else:
+            if not self.script_path.exists():
+                self.process_error.emit(f"[GUI] Errore: file non trovato: {self.script_path}\n")
+                self.process_finished.emit(-1, "fisher.py non trovato")
+                return
 
-        command = [sys.executable, "-u", str(self.script_path.name)]
+            command = [sys.executable, "-u", str(self.script_path.name)]
+            working_directory = self.project_root
+            startup_description = "python -u fisher.py"
+
+        self.output_received.emit(f"[GUI] Avvio: {startup_description}\n")
         creation_flags = 0
         if os.name == "nt":
             creation_flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
@@ -64,7 +86,7 @@ class FisherWorker(QThread):
         try:
             process = subprocess.Popen(
                 command,
-                cwd=str(self.project_root),
+                cwd=str(working_directory),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 stdin=subprocess.DEVNULL,
@@ -190,7 +212,6 @@ class MainWindow(QMainWindow):
         if self.worker is not None or self._running:
             return
 
-        self._append_console("[GUI] Avvio: python -u fisher.py\n")
         self.toggle_button.setEnabled(False)
 
         self.worker = FisherWorker(PROJECT_ROOT, FISHER_SCRIPT)
@@ -274,6 +295,16 @@ class MainWindow(QMainWindow):
             event.ignore()
 
 
+def run_fisher_child() -> int:
+    """Run the bundled fisher module in a subprocess of the frozen executable."""
+    if FISHER_CHILD_ARG in sys.argv:
+        sys.argv.remove(FISHER_CHILD_ARG)
+
+    import fisher  # noqa: F401 - importing starts the existing fisher script.
+
+    return 0
+
+
 def main() -> int:
     app = QApplication(sys.argv)
     window = MainWindow()
@@ -282,4 +313,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    if FISHER_CHILD_ARG in sys.argv:
+        raise SystemExit(run_fisher_child())
     raise SystemExit(main())
