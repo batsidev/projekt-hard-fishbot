@@ -1,19 +1,13 @@
-import time
 import pyautogui
 import numpy as np
 import cv2
-import time
 import pygetwindow as gw
 
-from utils.slack_client import send_text_message_with_image_to_slack
-
 SCHEDULE_TIME_IN_SECONDS = 15
-
-template_image_save_path = 'D:\\fisher-py\\media\\new-message-detected.png'
+NEW_MESSAGE_LOG = "New message detected"
 
 # Get the window associated information
 window = gw.getWindowsWithTitle("OLD METIN2")[0]
-window_rect = window.left, window.top, window.width, window.height
 window_text_rect = window.left + 2650, window.top + 621, 140, 26
 
 def check_for_ingame_message_text():
@@ -42,16 +36,11 @@ def check_for_ingame_message_text():
 
 def continuously_check_for_ingame_message():
     if check_for_ingame_message_text(): # Detect the text pixel color of the message sender
-            print("\nIn-game message detected!")
-            screenshot = pyautogui.screenshot(region=window_rect)
-            screenshot.save(template_image_save_path)
-            time.sleep(0.5)
-            send_text_message_with_image_to_slack("In-game message detected!", template_image_save_path)
-            time.sleep(0.5)
-            raise InterruptedError("In-game message detected")
+        return NEW_MESSAGE_LOG
+    return None
 
 # Function to run the scheduler
 def setup_ingame_message_handler(task_scheduler):
     global SCHEDULE_TIME_IN_SECONDS
-    print("Setup the in-game message handler")    
+    print("Setup the in-game message handler")
     task_scheduler.every(SCHEDULE_TIME_IN_SECONDS).seconds.do(continuously_check_for_ingame_message)
