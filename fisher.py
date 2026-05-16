@@ -60,7 +60,7 @@ detection_attempts = 0
 max_detection_attempts_count = 0
 
 # Get the window associated information
-window_title = "Projekt-h4rd"
+window_title = "Projekt Hard"
 matching_windows = gw.getWindowsWithTitle(window_title)
 
 if not matching_windows:
