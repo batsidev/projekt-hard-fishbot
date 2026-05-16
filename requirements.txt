@@ -6,3 +6,5 @@ schedule
 requests
 pyKey
 PySide6
+pyscreeze
+Pillow
