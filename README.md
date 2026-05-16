@@ -1,6 +1,6 @@
 # MT2 Py-Fisher
 
-This is a Python project that includes functionalities for interacting MT2 game window for in-game fishing. It also supports sending Slack messages / in-game message delivery and handling messages in the queue.
+This is a Python project that includes functionalities for interacting MT2 game window for in-game fishing. It also supports in-game message detection and handling messages in the queue.
 
 ## Structure
 
@@ -17,11 +17,7 @@ The project has the following structure:
   - `request.py`: Test script for handling requests.
 - `utils/`: Contains utility scripts.
   - `keyboard.py`: Handles keyboard interactions.
-  - `slack_client.py`: Handles interactions with Slack.
 
-## Slack Client
-
-The Slack client is implemented in [`slack_client.py`](utils/slack_client.py). It includes functions for sending text messages and text messages with image attachments to a specific Slack channel.
 
 ## Setup
 
