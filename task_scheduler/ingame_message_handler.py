@@ -7,7 +7,7 @@ SCHEDULE_TIME_IN_SECONDS = 15
 NEW_MESSAGE_LOG = "New message detected"
 
 # Get the window associated information
-window = gw.getWindowsWithTitle("OLD METIN2")[0]
+window = gw.getWindowsWithTitle("Projekt Hard")[0]
 window_text_rect = window.left + 2650, window.top + 621, 140, 26
 
 def check_for_ingame_message_text():
