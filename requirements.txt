@@ -1,0 +1,8 @@
+numpy
+opencv-python
+pyautogui
+PyGetWindow
+schedule
+slack-sdk
+requests
+pyKey
