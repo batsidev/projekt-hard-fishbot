@@ -5,3 +5,4 @@ PyGetWindow
 schedule
 requests
 pyKey
+PySide6
