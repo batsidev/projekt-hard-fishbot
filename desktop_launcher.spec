@@ -1,12 +1,13 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-"""PyInstaller build spec for a standalone Fisher desktop launcher.
+"""PyInstaller build spec for the Fisher desktop launcher.
 
-Build with:
-    pyinstaller --noconfirm desktop_launcher.spec
+Build on Windows from the project root with:
+    pyinstaller --clean desktop_launcher.spec
 
-The spec bundles fisher.py, the task_scheduler/utils packages, and the media
-images so the generated executable can run without the source project folder.
+The spec bundles fisher.py, local packages, template images, and the screenshot
+stack used by pyautogui so the generated executable can call
+pyautogui.screenshot() without missing pyscreeze/Pillow/PIL modules.
 """
 
 from PyInstaller.utils.hooks import collect_submodules
@@ -15,6 +16,9 @@ from PyInstaller.utils.hooks import collect_submodules
 hiddenimports = (
     collect_submodules("task_scheduler")
     + collect_submodules("utils")
+    + collect_submodules("pyscreeze")
+    + collect_submodules("PIL")
+    + collect_submodules("pyautogui")
     + ["fisher"]
 )
 
