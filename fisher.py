@@ -84,16 +84,109 @@ max_detection_attempts_count = 0
 
 # Get the window associated information
 window_title = "Projekt Hard"
-matching_windows = gw.getWindowsWithTitle(window_title)
 
-if not matching_windows:
-    raise RuntimeError(f'Window with title {window_title!r} was not found')
 
-window = matching_windows[0]
-window_rect = window.left, window.top, window.width, window.height
-window_rect_aoi = window.left + 500, window.top, window.width - 1000, window.height - 700
-window.activate()
-time.sleep(1)
+def get_available_window_titles():
+    try:
+        return [title for title in gw.getAllTitles() if title]
+    except Exception as exc:
+        return [f"<unable to list windows: {exc}>"]
+
+
+def describe_window(window):
+    try:
+        return (
+            f"title={window.title!r}, "
+            f"left={window.left}, top={window.top}, "
+            f"width={window.width}, height={window.height}"
+        )
+    except Exception as exc:
+        return f"<stale or unavailable window: {exc}>"
+
+
+def find_target_window(title):
+    print(f"[GUI/FISHER] Looking for window with title: {title}")
+
+    try:
+        matching_windows = gw.getWindowsWithTitle(title)
+    except Exception as exc:
+        print(f"[GUI/FISHER] Warning: unable to query windows: {exc}")
+        matching_windows = []
+
+    if not matching_windows:
+        available_windows = get_available_window_titles()
+        print(f"[GUI/FISHER] Window with title {title!r} was not found.")
+        print("[GUI/FISHER] Available windows:")
+        for available_title in available_windows:
+            print(f"[GUI/FISHER] - {available_title}")
+        raise RuntimeError(f"Window with title {title!r} was not found")
+
+    for matching_window in matching_windows:
+        window_description = describe_window(matching_window)
+
+        if window_description.startswith("<stale or unavailable window:"):
+            print(f"[GUI/FISHER] Warning: skipping invalid window: {window_description}")
+            continue
+
+        print(f"[GUI/FISHER] Found window: {window_description}")
+        return matching_window
+
+    available_windows = get_available_window_titles()
+    print(f"[GUI/FISHER] Window with title {title!r} was found, but no valid window handle was available.")
+    print("[GUI/FISHER] Available windows:")
+    for available_title in available_windows:
+        print(f"[GUI/FISHER] - {available_title}")
+    raise RuntimeError(f"Window with title {title!r} was not available")
+
+
+def restore_window_if_minimized(window):
+    try:
+        if window.isMinimized:
+            print("[GUI/FISHER] Window is minimized; attempting to restore it.")
+            window.restore()
+            time.sleep(0.2)
+    except Exception as exc:
+        print(f"[GUI/FISHER] Warning: unable to restore window: {exc}")
+
+
+def activate_window(window):
+    try:
+        window.activate()
+        time.sleep(1)
+        return True
+    except Exception as exc:
+        print(f"[GUI/FISHER] Warning: unable to activate window: {exc}")
+        return False
+
+
+def prepare_target_window(window):
+    restore_window_if_minimized(window)
+    activate_window(window)
+
+
+def get_window_rectangles(window):
+    try:
+        left = window.left
+        top = window.top
+        width = window.width
+        height = window.height
+    except Exception as exc:
+        raise RuntimeError(f"Unable to read target window geometry: {exc}") from exc
+
+    return (
+        (left, top, width, height),
+        (left + 500, top, width - 1000, height - 700),
+    )
+
+
+window = find_target_window(window_title)
+prepare_target_window(window)
+try:
+    window_rect, window_rect_aoi = get_window_rectangles(window)
+except RuntimeError as exc:
+    print(f"[GUI/FISHER] Warning: target window became unavailable after activation attempt: {exc}")
+    window = find_target_window(window_title)
+    window_rect, window_rect_aoi = get_window_rectangles(window)
 
 def find_best_template_match(screen_image):
     best_match = None
@@ -160,9 +253,14 @@ def check_for_image():
 
 def pull_hook(template_name):
     # Check if the window is active
-    if not window.isActive:
-        window.activate()
-        time.sleep(0.1)
+    try:
+        is_window_active = window.isActive
+    except Exception as exc:
+        print(f"[GUI/FISHER] Warning: unable to read active window state: {exc}")
+        is_window_active = False
+
+    if not is_window_active:
+        activate_window(window)
 
     space_press_count = int(template_name.split('_', 1)[0])
     print(
