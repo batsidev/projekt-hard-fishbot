@@ -3,6 +3,7 @@ import numpy as np
 import pyautogui
 import time
 import sys
+import os
 from pathlib import Path
 import pygetwindow as gw
 
@@ -15,10 +16,32 @@ print("\nFisher script started.\n")
 time.sleep(5)
 
 # Global variables
-BASE_DIR = Path(__file__).resolve().parent
+def bundled_base_dir() -> Path:
+    """Return the folder that contains bundled read-only assets."""
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    return Path(__file__).resolve().parent
+
+
+def writable_output_dir() -> Path:
+    """Return a writable folder for screenshots generated at runtime."""
+    configured_dir = os.environ.get("FISHER_OUTPUT_DIR")
+    if configured_dir:
+        output_dir = Path(configured_dir).expanduser()
+    elif getattr(sys, "frozen", False):
+        output_dir = Path.cwd() / "fishbot-output"
+    else:
+        output_dir = bundled_base_dir() / 'media'
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return output_dir
+
+
+BASE_DIR = bundled_base_dir()
 MEDIA_DIR = BASE_DIR / 'media'
+OUTPUT_DIR = writable_output_dir()
 TEMPLATE_FILE_NAMES = ('1_1.png', '1_2.png', '2_1.png', '2_2.png', '3_1.png', '3_2.png')
-template_image_save_path = MEDIA_DIR / 'caught.png'
+template_image_save_path = OUTPUT_DIR / 'caught.png'
 template_match_threshold = 0.55
 templating_delay_speed = 0.45
 
@@ -181,7 +204,7 @@ def check_for_unexpected_attempt_count():
 
             # Take a screenshot and continue processing
             screenshot = pyautogui.screenshot(region=window_rect)    
-            screenshot.save(MEDIA_DIR / ('bypass_on_fail_' + str(bypass_fail_count) + '.png'))                                          
+            screenshot.save(OUTPUT_DIR / ('bypass_on_fail_' + str(bypass_fail_count) + '.png'))                                          
             bypass_fail_count = bypass_fail_count + 1
 
             continuously_check_for_image()
