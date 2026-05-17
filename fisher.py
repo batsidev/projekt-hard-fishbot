@@ -37,13 +37,40 @@ def writable_output_dir() -> Path:
     return output_dir
 
 
+def env_float(name, default):
+    """Read a float from the environment and fall back to a safe default."""
+    raw_value = os.environ.get(name)
+    if raw_value is None:
+        return default
+
+    try:
+        return float(raw_value)
+    except ValueError:
+        print(
+            f"[GUI/FISHER] Warning: invalid {name}={raw_value!r}; "
+            f"using default {default}"
+        )
+        return default
+
+
 BASE_DIR = bundled_base_dir()
 MEDIA_DIR = BASE_DIR / 'media'
 OUTPUT_DIR = writable_output_dir()
 TEMPLATE_FILE_NAMES = ('1_1.png', '1_2.png', '2_1.png', '2_2.png', '3_1.png', '3_2.png')
 template_image_save_path = OUTPUT_DIR / 'caught.png'
-template_match_threshold = 0.55
+DEBUG_SCREENSHOTS = True
+DEBUG_SCREENSHOT_EVERY_N_ATTEMPTS = 20
+template_match_threshold = env_float("FISHER_TEMPLATE_THRESHOLD", 0.55)
 templating_delay_speed = 0.45
+
+print(f"[GUI/FISHER] Base dir: {BASE_DIR}")
+print(f"[GUI/FISHER] Media dir: {MEDIA_DIR}")
+print(f"[GUI/FISHER] Output dir: {OUTPUT_DIR}")
+print(f"[GUI/FISHER] Template match threshold: {template_match_threshold}")
+print(
+    f"[GUI/FISHER] Debug screenshots enabled: {DEBUG_SCREENSHOTS} "
+    f"(every {DEBUG_SCREENSHOT_EVERY_N_ATTEMPTS} attempts)"
+)
 
 
 def load_template_images():
@@ -65,6 +92,10 @@ def load_template_images():
             "Unable to load template image(s): " + ", ".join(missing_templates)
         )
 
+    print(
+        f"[GUI/FISHER] Loaded {len(templates)} template image(s): "
+        + ", ".join(sorted(templates.keys()))
+    )
     return templates
 
 
@@ -151,8 +182,10 @@ def restore_window_if_minimized(window):
 
 def activate_window(window):
     try:
+        print(f"[GUI/FISHER] Activating target window: {describe_window(window)}")
         window.activate()
         time.sleep(1)
+        print("[GUI/FISHER] Activation request completed.")
         return True
     except Exception as exc:
         print(f"[GUI/FISHER] Warning: unable to activate window: {exc}")
@@ -160,6 +193,7 @@ def activate_window(window):
 
 
 def prepare_target_window(window):
+    print("[GUI/FISHER] Preparing target window.")
     restore_window_if_minimized(window)
     activate_window(window)
 
@@ -173,10 +207,11 @@ def get_window_rectangles(window):
     except Exception as exc:
         raise RuntimeError(f"Unable to read target window geometry: {exc}") from exc
 
-    return (
-        (left, top, width, height),
-        (left + 500, top, width - 1000, height - 700),
-    )
+    window_rect = (left, top, width, height)
+    window_rect_aoi = window_rect
+    print(f"[GUI/FISHER] window_rect: {window_rect}")
+    print(f"[GUI/FISHER] window_rect_aoi: {window_rect_aoi}")
+    return window_rect, window_rect_aoi
 
 
 window = find_target_window(window_title)
@@ -199,6 +234,7 @@ def find_best_template_match(screen_image):
             print(f"Skipping {template_name}: template is larger than the screenshot area")
             continue
 
+        print(f"[GUI/FISHER] Matching template: {template_name}")
         result = cv2.matchTemplate(screen_image, template_image, cv2.TM_CCOEFF_NORMED)
         _, score, _, location = cv2.minMaxLoc(result)
 
@@ -218,8 +254,20 @@ def check_for_image():
     global pull_attempts
     global max_detection_attempts_count
 
+    attempt_number = detection_attempts + 1
+    print(f"[GUI/FISHER] Detection attempt {attempt_number}; taking AOI screenshot: {window_rect_aoi}")
+
     # Take a screenshot for the area of interest
     screenshot = pyautogui.screenshot(region=window_rect_aoi)
+
+    if (
+        DEBUG_SCREENSHOTS
+        and DEBUG_SCREENSHOT_EVERY_N_ATTEMPTS > 0
+        and attempt_number % DEBUG_SCREENSHOT_EVERY_N_ATTEMPTS == 0
+    ):
+        debug_screenshot_path = OUTPUT_DIR / f"debug_aoi_{attempt_number}.png"
+        screenshot.save(debug_screenshot_path)
+        print(f"[GUI/FISHER] Saved debug AOI screenshot: {debug_screenshot_path}")
 
     # Convert the screenshot to a NumPy array
     screen_image = np.array(screenshot)
@@ -247,7 +295,19 @@ def check_for_image():
     detection_attempts += 1
     max_detection_attempts_count = max(detection_attempts, max_detection_attempts_count)
     best_score = best_match['score'] if best_match else 0
-    print("Image not detected: ", detection_attempts, " - best score: ", best_score)
+    best_template = best_match['name'] if best_match else '<none>'
+    print(
+        "Image not detected: ",
+        detection_attempts,
+        " - best template: ",
+        best_template,
+        " - best score: ",
+        best_score,
+        " - threshold: ",
+        template_match_threshold,
+        " - AOI: ",
+        window_rect_aoi,
+    )
     return False
 
 
@@ -258,6 +318,8 @@ def pull_hook(template_name):
     except Exception as exc:
         print(f"[GUI/FISHER] Warning: unable to read active window state: {exc}")
         is_window_active = False
+
+    print(f"[GUI/FISHER] Window active before pull: {is_window_active}")
 
     if not is_window_active:
         activate_window(window)
@@ -272,9 +334,11 @@ def pull_hook(template_name):
         pull_attempts,
     )
 
+    print("[GUI/FISHER] Waiting before sending pull input.")
     time.sleep(2)
 
     for press_index in range(space_press_count):
+        print(f"[GUI/FISHER] Sending space press {press_index + 1}/{space_press_count}")
         press_space()
 
         if press_index < space_press_count - 1:
@@ -287,6 +351,10 @@ def check_for_unexpected_attempt_count():
     global bypass_fail_count 
 
     if detection_attempts >= max_detection_attempts_threshold:
+        print(
+            f"[GUI/FISHER] Detection threshold reached: "
+            f"{detection_attempts}/{max_detection_attempts_threshold}"
+        )
         add_message_to_queue("Unexpected detection attempt count threshold hit: " + str(detection_attempts))
                 
         if bypass_on_fail:
@@ -301,8 +369,11 @@ def check_for_unexpected_attempt_count():
             time.sleep(5)
 
             # Take a screenshot and continue processing
+            print(f"[GUI/FISHER] Capturing bypass screenshot for full window: {window_rect}")
             screenshot = pyautogui.screenshot(region=window_rect)    
-            screenshot.save(OUTPUT_DIR / ('bypass_on_fail_' + str(bypass_fail_count) + '.png'))                                          
+            bypass_screenshot_path = OUTPUT_DIR / ('bypass_on_fail_' + str(bypass_fail_count) + '.png')
+            screenshot.save(bypass_screenshot_path)
+            print(f"[GUI/FISHER] Saved bypass screenshot: {bypass_screenshot_path}")
             bypass_fail_count = bypass_fail_count + 1
 
             continuously_check_for_image()
@@ -313,9 +384,11 @@ def check_for_unexpected_attempt_count():
 # Function to continuously check for the image
 def continuously_check_for_image():
     global templating_delay_speed
+    print("[GUI/FISHER] Starting continuous image detection loop.")
     prepare_for_fishing()
     try:
         while True:
+            print(f"[GUI/FISHER] Sleeping {templating_delay_speed} seconds before next detection attempt.")
             time.sleep(templating_delay_speed)
             if check_for_image():
                 break
@@ -345,5 +418,7 @@ def continuously_check_for_image():
         input()  # Wait for user to press any key
         sys.exit(1) # Exit the script
 
+print("[GUI/FISHER] Setting up task scheduler.")
 setup_task_scheduler()
+print("[GUI/FISHER] Task scheduler setup completed.")
 continuously_check_for_image()
