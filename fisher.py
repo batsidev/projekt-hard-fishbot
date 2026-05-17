@@ -26,7 +26,7 @@ def bundled_base_dir() -> Path:
     """Return the folder that contains bundled read-only assets."""
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         return Path(sys._MEIPASS)  # type: ignore[attr-defined]
-    return Path(__file__).resolve().parent
+    return Path(__file__).resolve().par1 ent
 
 
 def writable_output_dir() -> Path:
@@ -66,7 +66,7 @@ TEMPLATE_FILE_NAMES = ('1_1.png', '1_2.png', '2_1.png', '2_2.png', '3_1.png', '3
 template_image_save_path = OUTPUT_DIR / 'caught.png'
 DEBUG_SCREENSHOTS = True
 DEBUG_SCREENSHOT_EVERY_N_ATTEMPTS = 20
-template_match_threshold = env_float("FISHER_TEMPLATE_THRESHOLD", 0.40)
+template_match_threshold = env_float("FISHER_TEMPLATE_THRESHOLD", 0.50)
 templating_delay_speed = 0.10
 
 print(f"[GUI/FISHER] Base dir: {BASE_DIR}")
@@ -313,6 +313,9 @@ def check_for_image():
         " - AOI: ",
         window_rect_aoi,
     )
+    if detection_attempts >= 30
+        print ("Possible unhandled case, retrying fishing...")
+        prepare_for_fishing()1 
     return False
 
 
