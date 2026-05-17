@@ -88,12 +88,15 @@ pyinstaller --clean desktop_launcher.spec
 
 If the launcher starts `fisher.py` and the game window receives focus, but the bot does not pull the hook or perform the expected actions, use the diagnostic logs and screenshots to identify whether template detection or input delivery is failing:
 
-- Check the launcher/script logs for `Image not detected` lines. These lines include the best template name, best score, current threshold, and the AOI used for detection. If the best score stays below the threshold, the bot is not detecting the fishing UI template.
-- Check debug screenshots in the runtime output directory (`fishbot-output/` for the frozen launcher, or the directory configured with `FISHER_OUTPUT_DIR`). Files named like `debug_aoi_20.png`, `debug_aoi_40.png`, and `debug_aoi_60.png` show exactly what area the bot is scanning.
+- Check the launcher/script logs for `Image not detected` lines. These lines include the best template name, best score, scale, match location, current threshold, and the AOI used for detection. If the best score stays below the threshold, the bot is not detecting the fishing UI template.
+- Check debug screenshots in the runtime output directory (`fishbot-output/` for the frozen launcher, or the directory configured with `FISHER_OUTPUT_DIR`). Files named like `debug_aoi_20.png`, `debug_aoi_40.png`, and `debug_aoi_60.png` show exactly what area the bot is scanning; matching `debug_match_20.png`, `debug_match_40.png`, and `debug_match_60.png` files draw a rectangle around OpenCV's best match and label the template name, score, and scale.
+- If the best score remains low, create replacement templates by cropping directly from `fishbot-output/debug_aoi_N.png` screenshots captured on the same machine and display settings.
+- Use larger templates with a little surrounding context instead of tiny icon fragments. Prefer at least `24x24` or `32x32` pixels when possible.
+- For threshold diagnostics, set `FISHER_TEMPLATE_THRESHOLD=0.40` before launching the bot. If a lower threshold works, recapture or enlarge templates before raising the threshold again.
+- Verify Windows display scaling is set to 100%. Different scaling can change the pixels that template matching sees.
+- Avoid exclusive fullscreen mode. Prefer windowed or borderless windowed mode so screenshots capture the same pixels that are visible on screen.
 - Verify that the game and the launcher are started with the same privileges. For example, if the game runs as Administrator, start the launcher as Administrator too, otherwise keyboard input may not reach the game.
-- Verify Windows display scaling is set to 100% and that the game resolution matches the expected layout. Different scaling or resolution can change the pixels that template matching sees.
 - Verify that the template images in `media/` still match the current in-game UI. If the UI changed, replace or recapture the templates.
-- For threshold diagnostics, set `FISHER_TEMPLATE_THRESHOLD` before launching the bot. The default is `0.55`; lowering it temporarily can confirm whether near matches are being rejected.
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.

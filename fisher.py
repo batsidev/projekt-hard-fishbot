@@ -66,6 +66,8 @@ TEMPLATE_FILE_NAMES = ('1_1.png', '1_2.png', '2_1.png', '2_2.png', '3_1.png', '3
 template_image_save_path = OUTPUT_DIR / 'caught.png'
 DEBUG_SCREENSHOTS = True
 DEBUG_SCREENSHOT_EVERY_N_ATTEMPTS = 20
+TEMPLATE_MATCH_SCALES = [0.75, 0.85, 0.95, 1.00, 1.05, 1.15, 1.25]
+MIN_TEMPLATE_SIZE = 4
 template_match_threshold = env_float("FISHER_TEMPLATE_THRESHOLD", 0.50)
 templating_delay_speed = 0.10
 
@@ -85,13 +87,22 @@ def load_template_images():
 
     for file_name in TEMPLATE_FILE_NAMES:
         template_path = MEDIA_DIR / file_name
-        template_image = cv2.imread(str(template_path))
+        template_bgr = cv2.imread(str(template_path), cv2.IMREAD_COLOR)
 
-        if template_image is None:
+        if template_bgr is None:
             missing_templates.append(str(template_path))
             continue
 
-        templates[template_path.stem] = template_image
+        template_gray = cv2.cvtColor(template_bgr, cv2.COLOR_BGR2GRAY)
+        template_height, template_width = template_bgr.shape[:2]
+        templates[template_path.stem] = {
+            "bgr": template_bgr,
+            "gray": template_gray,
+        }
+        print(
+            f"[GUI/FISHER] Loaded template {template_path.name}: "
+            f"{template_width}x{template_height}px"
+        )
 
     if missing_templates:
         raise FileNotFoundError(
@@ -231,26 +242,93 @@ except RuntimeError as exc:
 
 def find_best_template_match(screen_image):
     best_match = None
+    screen_gray = cv2.cvtColor(screen_image, cv2.COLOR_BGR2GRAY)
+    screen_height, screen_width = screen_gray.shape[:2]
 
-    for template_name, template_image in template_images.items():
-        if (
-            template_image.shape[0] > screen_image.shape[0]
-            or template_image.shape[1] > screen_image.shape[1]
-        ):
-            print(f"Skipping {template_name}: template is larger than the screenshot area")
-            continue
+    for template_name, template_variants in template_images.items():
+        template_gray = template_variants["gray"]
+        template_height, template_width = template_gray.shape[:2]
 
-        result = cv2.matchTemplate(screen_image, template_image, cv2.TM_CCOEFF_NORMED)
-        _, score, _, location = cv2.minMaxLoc(result)
+        for scale in TEMPLATE_MATCH_SCALES:
+            scaled_width = int(round(template_width * scale))
+            scaled_height = int(round(template_height * scale))
 
-        if best_match is None or score > best_match['score']:
-            best_match = {
-                'name': template_name,
-                'score': score,
-                'location': location,
-            }
+            if scaled_width < MIN_TEMPLATE_SIZE or scaled_height < MIN_TEMPLATE_SIZE:
+                print(
+                    f"[GUI/FISHER] Skipping {template_name} at scale {scale:.2f}: "
+                    f"scaled template is too small ({scaled_width}x{scaled_height})"
+                )
+                continue
+
+            if scaled_width > screen_width or scaled_height > screen_height:
+                print(
+                    f"[GUI/FISHER] Skipping {template_name} at scale {scale:.2f}: "
+                    f"scaled template ({scaled_width}x{scaled_height}) is larger "
+                    f"than the screenshot area ({screen_width}x{screen_height})"
+                )
+                continue
+
+            if scale == 1.0:
+                scaled_template = template_gray
+            else:
+                scaled_template = cv2.resize(
+                    template_gray,
+                    (scaled_width, scaled_height),
+                    interpolation=cv2.INTER_AREA if scale < 1.0 else cv2.INTER_CUBIC,
+                )
+
+            result = cv2.matchTemplate(screen_gray, scaled_template, cv2.TM_CCOEFF_NORMED)
+            _, score, _, location = cv2.minMaxLoc(result)
+
+            if best_match is None or score > best_match['score']:
+                best_match = {
+                    'name': template_name,
+                    'score': score,
+                    'location': location,
+                    'scale': scale,
+                    'template_width': scaled_width,
+                    'template_height': scaled_height,
+                }
 
     return best_match
+
+
+def save_debug_match_screenshot(screen_image, best_match, attempt_number):
+    debug_image = screen_image.copy()
+
+    if best_match:
+        match_x, match_y = best_match['location']
+        match_width = best_match['template_width']
+        match_height = best_match['template_height']
+        cv2.rectangle(
+            debug_image,
+            (match_x, match_y),
+            (match_x + match_width, match_y + match_height),
+            (0, 255, 0),
+            2,
+        )
+        label = (
+            f"{best_match['name']} "
+            f"score={best_match['score']:.3f} "
+            f"scale={best_match['scale']:.2f}"
+        )
+    else:
+        label = "no match"
+
+    cv2.putText(
+        debug_image,
+        label,
+        (10, 24),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (0, 255, 0),
+        2,
+        cv2.LINE_AA,
+    )
+
+    debug_match_path = OUTPUT_DIR / f"debug_match_{attempt_number}.png"
+    cv2.imwrite(str(debug_match_path), debug_image)
+    print(f"[GUI/FISHER] Saved debug match screenshot: {debug_match_path}")
 
 
 # Function to check for the presence of the image
@@ -263,12 +341,13 @@ def check_for_image():
 
     # Take a screenshot for the area of interest
     screenshot = pyautogui.screenshot(region=window_rect_aoi)
-
-    if (
+    should_save_debug_screenshot = (
         DEBUG_SCREENSHOTS
         and DEBUG_SCREENSHOT_EVERY_N_ATTEMPTS > 0
         and attempt_number % DEBUG_SCREENSHOT_EVERY_N_ATTEMPTS == 0
-    ):
+    )
+
+    if should_save_debug_screenshot:
         debug_screenshot_path = OUTPUT_DIR / f"debug_aoi_{attempt_number}.png"
         screenshot.save(debug_screenshot_path)
         print(f"[GUI/FISHER] Saved debug AOI screenshot: {debug_screenshot_path}")
@@ -279,14 +358,25 @@ def check_for_image():
 
     best_match = find_best_template_match(screen_image)
 
+    if should_save_debug_screenshot:
+        save_debug_match_screenshot(screen_image, best_match, attempt_number)
+
     if best_match and best_match['score'] >= template_match_threshold:
         print(
             "\nImage detected: ",
             best_match['name'],
             " - score: ",
             best_match['score'],
+            " - scale: ",
+            best_match['scale'],
             " - location: ",
             best_match['location'],
+            " - template size: ",
+            f"{best_match['template_width']}x{best_match['template_height']}",
+            " - threshold: ",
+            template_match_threshold,
+            " - AOI: ",
+            window_rect_aoi,
         )
 
         pull_attempts += 1
@@ -301,6 +391,8 @@ def check_for_image():
     max_detection_attempts_count = max(detection_attempts, max_detection_attempts_count)
     best_score = best_match['score'] if best_match else 0
     best_template = best_match['name'] if best_match else '<none>'
+    best_scale = best_match['scale'] if best_match else '<none>'
+    best_location = best_match['location'] if best_match else '<none>'
     print(
         "Image not detected: ",
         detection_attempts,
@@ -308,6 +400,10 @@ def check_for_image():
         best_template,
         " - best score: ",
         best_score,
+        " - scale: ",
+        best_scale,
+        " - location: ",
+        best_location,
         " - threshold: ",
         template_match_threshold,
         " - AOI: ",
