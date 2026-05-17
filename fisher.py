@@ -315,6 +315,7 @@ def check_for_image():
     )
     if detection_attempts >= 30:
         print ("Possible unhandled case, retrying fishing...")
+        detection_attempts = 0
         prepare_for_fishing()
     return False
 
