@@ -294,7 +294,7 @@ def check_for_image():
 
         pull_hook(best_match['name'])
         time.sleep(4)
-        prepare_for_fishing()
+        _fishing()
         return False
 
     detection_attempts += 1
@@ -313,7 +313,7 @@ def check_for_image():
         " - AOI: ",
         window_rect_aoi,
     )
-    if detection_attempts >= 30
+    if detection_attempts >= 30:
         print ("Possible unhandled case, retrying fishing...")
         prepare_for_fishing()
     return False
