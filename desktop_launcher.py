@@ -143,11 +143,14 @@ class FisherWorker(QThread):
             if os.name == "nt":
                 try:
                     self.output_received.emit("[GUI] Invio CTRL_BREAK_EVENT a fisher.py...\n")
-                    os.kill(process.pid, signal.CTRL_BREAK_EVENT)  # type: ignore[attr-defined]
+                    process.send_signal(signal.CTRL_BREAK_EVENT)  # type: ignore[attr-defined]
                     process.wait(timeout=5)
                     return
                 except Exception as exc:
-                    self.output_received.emit(f"[GUI] CTRL_BREAK_EVENT non riuscito: {exc}\n")
+                    self.output_received.emit(
+                        f"[GUI] Warning: CTRL_BREAK_EVENT non riuscito: {exc}. "
+                        "Procedo con terminate().\n"
+                    )
             else:
                 try:
                     self.output_received.emit("[GUI] Invio SIGTERM a fisher.py...\n")
@@ -297,6 +300,18 @@ class MainWindow(QMainWindow):
 
 def run_fisher_child() -> int:
     """Run the bundled fisher module in a subprocess of the frozen executable."""
+    try:
+        sys.stdout.reconfigure(line_buffering=True, write_through=True)
+        sys.stderr.reconfigure(line_buffering=True, write_through=True)
+    except Exception:
+        pass
+
+    os.environ["PYTHONUNBUFFERED"] = "1"
+
+    print("[GUI/FISHER] Child process started.", flush=True)
+    print(f"[GUI/FISHER] Current working directory: {Path.cwd()}", flush=True)
+    print(f"[GUI/FISHER] Executable: {sys.executable}", flush=True)
+
     if FISHER_CHILD_ARG in sys.argv:
         sys.argv.remove(FISHER_CHILD_ARG)
 

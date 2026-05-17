@@ -12,7 +12,13 @@ from utils.keyboard import press_space, prepare_for_fishing
 from task_scheduler.scheduler import exit_signal, setup_task_scheduler
 from task_scheduler.message_queue_handler import add_message_to_queue
 
-print("\nFisher script started.\n")
+try:
+    sys.stdout.reconfigure(line_buffering=True, write_through=True)
+    sys.stderr.reconfigure(line_buffering=True, write_through=True)
+except Exception:
+    pass
+
+print("\nFisher script started.\n", flush=True)
 time.sleep(5)
 
 # Global variables
@@ -414,8 +420,9 @@ def continuously_check_for_image():
         
         exit_signal.set()
 
-        print("\nPress any key to quit.\n")
-        input()  # Wait for user to press any key
+        if sys.stdin and sys.stdin.isatty():
+            print("Press any key to quit.", flush=True)
+            input()  # Wait for user to press any key
         sys.exit(1) # Exit the script
 
 print("[GUI/FISHER] Setting up task scheduler.")
