@@ -293,6 +293,7 @@ def check_for_image():
         detection_attempts = 0
 
         pull_hook(best_match['name'])
+        time.sleep(4)
         prepare_for_fishing()
         return False
 
@@ -339,14 +340,14 @@ def pull_hook(template_name):
     )
 
     print("[GUI/FISHER] Waiting before sending pull input.")
-    time.sleep(2)
+    time.sleep()
 
     for press_index in range(space_press_count):
         print(f"[GUI/FISHER] Sending space press {press_index + 1}/{space_press_count}")
         press_space()
 
         if press_index < space_press_count - 1:
-            time.sleep(0.2)
+            time.sleep(0.1)
 
 # Function to check for the unexpected attempt count
 def check_for_unexpected_attempt_count():
