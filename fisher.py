@@ -66,8 +66,8 @@ TEMPLATE_FILE_NAMES = ('1_1.png', '1_2.png', '2_1.png', '2_2.png', '3_1.png', '3
 template_image_save_path = OUTPUT_DIR / 'caught.png'
 DEBUG_SCREENSHOTS = True
 DEBUG_SCREENSHOT_EVERY_N_ATTEMPTS = 20
-template_match_threshold = env_float("FISHER_TEMPLATE_THRESHOLD", 0.55)
-templating_delay_speed = 0.45
+template_match_threshold = env_float("FISHER_TEMPLATE_THRESHOLD", 0.40)
+templating_delay_speed = 0.10
 
 print(f"[GUI/FISHER] Base dir: {BASE_DIR}")
 print(f"[GUI/FISHER] Media dir: {MEDIA_DIR}")
@@ -240,7 +240,6 @@ def find_best_template_match(screen_image):
             print(f"Skipping {template_name}: template is larger than the screenshot area")
             continue
 
-        print(f"[GUI/FISHER] Matching template: {template_name}")
         result = cv2.matchTemplate(screen_image, template_image, cv2.TM_CCOEFF_NORMED)
         _, score, _, location = cv2.minMaxLoc(result)
 
@@ -261,7 +260,6 @@ def check_for_image():
     global max_detection_attempts_count
 
     attempt_number = detection_attempts + 1
-    print(f"[GUI/FISHER] Detection attempt {attempt_number}; taking AOI screenshot: {window_rect_aoi}")
 
     # Take a screenshot for the area of interest
     screenshot = pyautogui.screenshot(region=window_rect_aoi)
