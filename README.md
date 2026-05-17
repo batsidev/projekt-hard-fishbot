@@ -73,6 +73,17 @@ The generated executable will be placed in the `dist/` directory. The spec bundl
 
 ## Troubleshooting
 
+
+### The GUI shows only `[GUI] Avvio...` and no `fisher.py` logs
+
+If the frozen launcher starts and the console stops after a line like `[GUI] Avvio: desktop_launcher.exe --run-fisher-child`, the child process is likely buffering stdout/stderr. In frozen PyInstaller mode the launcher cannot rely on `python -u`, so the executable and `fisher.py` must force unbuffered, line-buffered output.
+
+Regenerate the executable after applying this patch so PyInstaller bundles the updated buffering fixes:
+
+```sh
+pyinstaller --clean desktop_launcher.spec
+```
+
 ### The bot focuses the game window but does not do anything
 
 If the launcher starts `fisher.py` and the game window receives focus, but the bot does not pull the hook or perform the expected actions, use the diagnostic logs and screenshots to identify whether template detection or input delivery is failing:
