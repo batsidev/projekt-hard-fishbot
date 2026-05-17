@@ -26,7 +26,7 @@ def bundled_base_dir() -> Path:
     """Return the folder that contains bundled read-only assets."""
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         return Path(sys._MEIPASS)  # type: ignore[attr-defined]
-    return Path(__file__).resolve().par1
+    return Path(__file__).resolve().parent
 
 
 def writable_output_dir() -> Path:
