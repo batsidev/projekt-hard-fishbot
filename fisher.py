@@ -340,7 +340,7 @@ def pull_hook(template_name):
     )
 
     print("[GUI/FISHER] Waiting before sending pull input.")
-    time.sleep()
+    time.sleep(1.8)
 
     for press_index in range(space_press_count):
         print(f"[GUI/FISHER] Sending space press {press_index + 1}/{space_press_count}")
