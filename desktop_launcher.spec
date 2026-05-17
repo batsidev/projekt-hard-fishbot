@@ -1,33 +1,36 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-"""PyInstaller build spec for the Fisher desktop launcher.
-
-Build on Windows from the project root with:
-    pyinstaller --clean desktop_launcher.spec
-
-The spec bundles fisher.py, local packages, template images, and the screenshot
-stack used by pyautogui so the generated executable can call
-pyautogui.screenshot() without missing pyscreeze/Pillow/PIL modules.
-"""
-
 from PyInstaller.utils.hooks import collect_submodules
 
+hiddenimports = [
+    "fisher",
+    "utils.keyboard",
+    "task_scheduler.scheduler",
+    "task_scheduler.message_queue_handler",
+    "pyscreeze",
+    "PIL",
+    "PIL.Image",
+    "PIL.ImageGrab",
+    "pydirectinput",
+]
 
-hiddenimports = (
-    collect_submodules("task_scheduler")
-    + collect_submodules("utils")
-    + collect_submodules("pyscreeze")
-    + collect_submodules("PIL")
-    + collect_submodules("pyautogui")
-    + ["fisher"]
-)
-
+hiddenimports += collect_submodules("utils")
+hiddenimports += collect_submodules("task_scheduler")
+hiddenimports += collect_submodules("pyscreeze")
+hiddenimports += collect_submodules("PIL")
+hiddenimports += collect_submodules("pyautogui")
+hiddenimports += collect_submodules("pydirectinput")
 
 a = Analysis(
     ["desktop_launcher.py"],
-    pathex=[],
+    pathex=["."],
     binaries=[],
-    datas=[("media", "media")],
+    datas=[
+        ("media", "media"),
+        ("fisher.py", "."),
+        ("utils", "utils"),
+        ("task_scheduler", "task_scheduler"),
+    ],
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
@@ -36,6 +39,7 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
+
 pyz = PYZ(a.pure)
 
 exe = EXE(
